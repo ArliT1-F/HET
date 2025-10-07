@@ -103,7 +103,7 @@ class HardwareEngineeringTool:
 
 
     def apply_theme(self):
-        """Apply color theme"""
+        # Apply color theme
         if self.settings["theme"] == "dark":
             self.bg_dark = "#2b2b2b"
             self.bg_medium = "#3c3f41"
@@ -150,7 +150,7 @@ class HardwareEngineeringTool:
 
 
     def setup_shortcuts(self):
-        """Setup keyboard shortcuts"""
+        # Setup keyboard shortcuts
         self.root.bind('<Control-n>', lambda e: self.new_project())
         self.root.bind('<Control-o>', lambda e: self.import_bom())
         self.root.bind('<Control-s>', lambda e: self.export_components())
@@ -160,13 +160,13 @@ class HardwareEngineeringTool:
 
 
     def focus_search(self):
-        """Focus on search box"""
+        # Focus on search box
         if hasattr(self, 'component_search'):
             self.component_search.focus()
 
 
     def refresh_all(self):
-        """Refresh all views"""
+        # Refresh all views
         self.refresh_components()
         self.refresh_projects()
         self.update_dashboard_stats()
@@ -174,14 +174,14 @@ class HardwareEngineeringTool:
 
 
     def setup_auto_backup(self):
-        """Setup automatic database backup"""
+        # Setup automatic database backup
         if self.settings.get("auto_backup", True):
             interval = self.settings.get("backup_interval", 30) * 60000  # Convert to ms
             self.root.after(interval, self.auto_backup)
 
 
     def auto_backup(self):
-        """Perform automatic backup"""
+        # Perform automatic backup
         try:
             backup_dir = "backups"
             os.makedirs(backup_dir, exist_ok=True)
@@ -208,7 +208,7 @@ class HardwareEngineeringTool:
 
 
     def init_database(self):
-        """Initialize SQLite database with enhanced schema"""
+        # Initialize SQLite database with enhanced schema
         self.conn = sqlite3.connect('hardware_workbench.db')
         self.cursor = self.conn.cursor()
         
@@ -327,7 +327,7 @@ class HardwareEngineeringTool:
 
 
     def create_menu(self):
-        """Create enhanced menu bar"""
+        # Create enhanced menu bar
         menubar = tk.Menu(self.root, bg=self.bg_medium, fg=self.text_color)
         self.root.config(menu=menubar)
         
@@ -459,7 +459,7 @@ class HardwareEngineeringTool:
 
 
     def create_stat_card(self, parent, title, value, column):
-        """Create a stat card"""
+        # Create a stat card
         card = tk.Frame(parent, bg=self.bg_medium, relief=tk.RAISED, borderwidth=2)
         card.grid(row=0, column=column, padx=10, pady=10, sticky="nsew", ipadx=20, ipady=20)
         parent.columnconfigure(column, weight=1)
@@ -472,7 +472,7 @@ class HardwareEngineeringTool:
 
 
     def create_action_button(self, parent, text, command, row, col):
-        """Create action button with tooltip"""
+        # Create action button with tooltip
         btn = tk.Button(parent, text=text, command=command, font=("Arial", 12), 
                        bg=self.accent, fg=self.text_color, relief=tk.FLAT,
                        padx=20, pady=15, cursor="hand2")
@@ -555,11 +555,25 @@ class HardwareEngineeringTool:
 
 
     def open_recent_projects(self, event):
+        # Open recently selected project
+        selection = self.recent_projects_list.curselection()
+        if selection:
+            project_name = self.recent_projects_list.get(selection[0]).strip()
+            # Switch to projects tab and open it
+            self.notebook.select(3)  # Projects tab
+            self.set_status(f"Opening project: {project_name}", False)
 
 
 
     def create_analytics_tab(self):
+        # NEW: Analytics tab with charts
+        analytics = tk.Frame(self.notebook, bg=self.bg_dark)
+        self.notebook.add(analytics, text="📈 Analytics")
 
+        tk.Label(analytics, text="Cost & Stock Analytics",font=("Arial", 18, "bold"), bg=self.bg_dark, fg=self.text_color).pack(pady=20)
+
+        if not HAS_MATPLOTLIB:
+            tk.Label(analytics, text="Install matplotlib for charts:\npip install matplotlib", font=("Arial", 14), bg=self.bg_dark, fg=self.accent_orange).pack(pady=50)
 
 
     def update_chart(self):
