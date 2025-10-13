@@ -11,6 +11,8 @@ from pathlib import Path
 import threading
 import shutil
 from collections import defaultdict
+import csv
+import traceback
 
 # Try to import optional libraries
 try:
@@ -35,29 +37,29 @@ class HardwareEngineeringWorkbench:
         
         # Load settings
         self.settings = self.load_settings()
-        
+    
         # Initialize database
         self.init_database()
-        
+    
         # Auto-backup
         self.setup_auto_backup()
-        
+    
         # Color scheme
         self.apply_theme()
-        
+    
         # Status bar
         self.create_status_bar()
-        
+    
         # Create main interface
         self.create_menu()
         self.create_main_layout()
-        
+    
         # Keyboard shortcuts
         self.setup_shortcuts()
-        
+    
         # Check for updates on startup
         self.root.after(1000, self.startup_checks)
-    
+
     def load_settings(self):
         #Load settings from JSON file#
         default_settings = {
@@ -72,7 +74,7 @@ class HardwareEngineeringWorkbench:
             "warn_low_stock": True,
             "recent_projects": []
         }
-        
+    
         try:
             if os.path.exists("settings.json"):
                 with open("settings.json", "r") as f:
@@ -80,9 +82,9 @@ class HardwareEngineeringWorkbench:
                     default_settings.update(loaded)
         except:
             pass
-        
-        return default_settings
     
+        return default_settings
+
     def save_settings(self):
         #Save settings to JSON file#
         try:
@@ -90,7 +92,7 @@ class HardwareEngineeringWorkbench:
                 json.dump(self.settings, f, indent=2)
         except Exception as e:
             print(f"Failed to save settings: {e}")
-    
+
     def apply_theme(self):
         #Apply color theme#
         if self.settings["theme"] == "dark":
@@ -111,21 +113,21 @@ class HardwareEngineeringWorkbench:
             self.accent_red = "#d13438"
             self.accent_orange = "#ff8c00"
             self.text_color = "#000000"
-        
-        self.root.configure(bg=self.bg_dark)
     
+        self.root.configure(bg=self.bg_dark)
+
     def create_status_bar(self):
         #Create status bar at bottom#
         self.status_bar = tk.Frame(self.root, bg=self.bg_medium, height=25)
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-        
+    
         self.status_label = tk.Label(self.status_bar, text="Ready", bg=self.bg_medium, 
-                                     fg=self.text_color, anchor=tk.W)
+                                 fg=self.text_color, anchor=tk.W)
         self.status_label.pack(side=tk.LEFT, padx=10)
-        
+    
         self.progress = ttk.Progressbar(self.status_bar, mode='indeterminate', length=100)
         self.progress.pack(side=tk.RIGHT, padx=10)
-    
+
     def set_status(self, message, working=False):
         #Update status bar#
         self.status_label.config(text=message)
@@ -134,7 +136,7 @@ class HardwareEngineeringWorkbench:
         else:
             self.progress.stop()
         self.root.update_idletasks()
-    
+
     def setup_shortcuts(self):
         #Setup keyboard shortcuts#
         self.root.bind('<Control-n>', lambda e: self.new_project())
@@ -143,56 +145,56 @@ class HardwareEngineeringWorkbench:
         self.root.bind('<Control-f>', lambda e: self.focus_search())
         self.root.bind('<F5>', lambda e: self.refresh_all())
         self.root.bind('<Control-comma>', lambda e: self.show_settings())
-    
+
     def focus_search(self):
         #Focus on search box#
         if hasattr(self, 'component_search'):
             self.component_search.focus()
-    
+
     def refresh_all(self):
         #Refresh all views#
         self.refresh_components()
         self.refresh_projects()
         self.update_dashboard_stats()
         self.set_status("Refreshed", False)
-    
+
     def setup_auto_backup(self):
         #Setup automatic database backup#
         if self.settings.get("auto_backup", True):
             interval = self.settings.get("backup_interval", 30) * 60000  # Convert to ms
             self.root.after(interval, self.auto_backup)
-    
+
     def auto_backup(self):
         #Perform automatic backup#
         try:
             backup_dir = "backups"
             os.makedirs(backup_dir, exist_ok=True)
-            
+        
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_file = f"{backup_dir}/hardware_workbench_{timestamp}.db"
-            
+        
             shutil.copy2("hardware_workbench.db", backup_file)
-            
+        
             # Keep only last 10 backups
             backups = sorted(Path(backup_dir).glob("*.db"))
             if len(backups) > 10:
                 for old_backup in backups[:-10]:
                     old_backup.unlink()
-            
+        
             self.set_status(f"Auto-backup completed: {timestamp}", False)
         except Exception as e:
             print(f"Auto-backup failed: {e}")
-        
+    
         # Schedule next backup
         if self.settings.get("auto_backup", True):
             interval = self.settings.get("backup_interval", 30) * 60000
             self.root.after(interval, self.auto_backup)
-    
+
     def init_database(self):
         #Initialize SQLite database with enhanced schema#
         self.conn = sqlite3.connect('hardware_workbench.db')
         self.cursor = self.conn.cursor()
-        
+    
         # Components table (enhanced)
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS components (
@@ -213,7 +215,7 @@ class HardwareEngineeringWorkbench:
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
+    
         # Price history table (NEW)
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS price_history (
@@ -225,7 +227,7 @@ class HardwareEngineeringWorkbench:
                 FOREIGN KEY (component_id) REFERENCES components(id)
             )
         ''')
-        
+    
         # Suppliers table (NEW)
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS suppliers (
@@ -236,7 +238,7 @@ class HardwareEngineeringWorkbench:
                 notes TEXT
             )
         ''')
-        
+    
         # Component-Supplier link (NEW)
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS component_suppliers (
@@ -252,7 +254,7 @@ class HardwareEngineeringWorkbench:
                 FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
             )
         ''')
-        
+    
         # Projects table
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS projects (
@@ -266,7 +268,7 @@ class HardwareEngineeringWorkbench:
                 last_opened TIMESTAMP
             )
         ''')
-        
+    
         # BOM table
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS bom (
@@ -280,7 +282,7 @@ class HardwareEngineeringWorkbench:
                 FOREIGN KEY (component_id) REFERENCES components(id)
             )
         ''')
-        
+    
         # Activity log (NEW)
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS activity_log (
@@ -290,25 +292,24 @@ class HardwareEngineeringWorkbench:
                 details TEXT
             )
         ''')
-        
-        self.conn.commit()
     
+        self.conn.commit()
+
     def log_activity(self, action, details=""):
         #Log user activity#
         try:
             self.cursor.execute(
-                "INSERT INTO activity_log (action, details) VALUES (?, ?)",
-                (action, details)
+                "INSERT INTO activity_log (action, details) VALUES (?, ?)", (action, details)
             )
             self.conn.commit()
         except:
             pass
-    
+
     def create_menu(self):
         #Create enhanced menu bar#
         menubar = tk.Menu(self.root, bg=self.bg_medium, fg=self.text_color)
         self.root.config(menu=menubar)
-        
+    
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0, bg=self.bg_medium, fg=self.text_color)
         menubar.add_cascade(label="File", menu=file_menu)
@@ -320,20 +321,20 @@ class HardwareEngineeringWorkbench:
         file_menu.add_command(label="Restore from Backup", command=self.restore_backup)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
-        
+    
         # Edit menu
         edit_menu = tk.Menu(menubar, tearoff=0, bg=self.bg_medium, fg=self.text_color)
         menubar.add_cascade(label="Edit", menu=edit_menu)
         edit_menu.add_command(label="Settings (Ctrl+,)", command=self.show_settings)
         edit_menu.add_command(label="Suppliers", command=self.manage_suppliers)
-        
+    
         # View menu
         view_menu = tk.Menu(menubar, tearoff=0, bg=self.bg_medium, fg=self.text_color)
         menubar.add_cascade(label="View", menu=view_menu)
         view_menu.add_command(label="Refresh (F5)", command=self.refresh_all)
         view_menu.add_separator()
         view_menu.add_checkbutton(label="Dark Theme", command=self.toggle_theme)
-        
+    
         # Tools menu
         tools_menu = tk.Menu(menubar, tearoff=0, bg=self.bg_medium, fg=self.text_color)
         menubar.add_cascade(label="Tools", menu=tools_menu)
@@ -343,7 +344,7 @@ class HardwareEngineeringWorkbench:
         tools_menu.add_separator()
         tools_menu.add_command(label="Price Update (Octopart)", command=self.update_prices_octopart)
         tools_menu.add_command(label="Generate Report", command=self.generate_report)
-        
+    
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0, bg=self.bg_medium, fg=self.text_color)
         menubar.add_cascade(label="Help", menu=help_menu)
@@ -352,7 +353,7 @@ class HardwareEngineeringWorkbench:
         help_menu.add_command(label="Check for Updates", command=self.check_updates)
         help_menu.add_separator()
         help_menu.add_command(label="About", command=self.show_about)
-    
+
     def create_main_layout(self):
         #Create main tabbed interface#
         style = ttk.Style()
@@ -360,10 +361,10 @@ class HardwareEngineeringWorkbench:
         style.configure('TNotebook', background=self.bg_dark)
         style.configure('TNotebook.Tab', background=self.bg_medium, foreground=self.text_color, padding=[20, 10])
         style.map('TNotebook.Tab', background=[('selected', self.accent)])
-        
+    
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+    
         # Create tabs
         self.create_dashboard_tab()
         self.create_components_tab()
@@ -371,17 +372,17 @@ class HardwareEngineeringWorkbench:
         self.create_projects_tab()
         self.create_analytics_tab()  # NEW
         self.create_tools_tab()
-    
+
     def create_dashboard_tab(self):
         #Enhanced dashboard with recent projects and alerts#
         dashboard = tk.Frame(self.notebook, bg=self.bg_dark)
         self.notebook.add(dashboard, text="📊 Dashboard")
-        
+    
         # Header
         header = tk.Label(dashboard, text="Hardware Engineering Workbench", 
-                         font=("Arial", 24, "bold"), bg=self.bg_dark, fg=self.text_color)
+                        font=("Arial", 24, "bold"), bg=self.bg_dark, fg=self.text_color)
         header.pack(pady=20)
-        
+    
         # Stats frame
         stats_frame = tk.Frame(dashboard, bg=self.bg_dark)
         stats_frame.pack(fill=tk.X, padx=20, pady=10)
@@ -397,13 +398,13 @@ class HardwareEngineeringWorkbench:
         
         # Recent Projects (LEFT)
         recent_frame = tk.LabelFrame(content_frame, text="📁 Recent Projects", 
-                                     font=("Arial", 12, "bold"),
-                                     bg=self.bg_dark, fg=self.text_color)
+                                    font=("Arial", 12, "bold"),
+                                    bg=self.bg_dark, fg=self.text_color)
         recent_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
         
         self.recent_projects_list = tk.Listbox(recent_frame, bg=self.bg_medium, 
-                                               fg=self.text_color, font=("Arial", 10),
-                                               height=8)
+                                            fg=self.text_color, font=("Arial", 10),
+                                            height=8)
         self.recent_projects_list.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         self.recent_projects_list.bind('<Double-Button-1>', self.open_recent_project)
         
@@ -414,12 +415,12 @@ class HardwareEngineeringWorkbench:
         alerts_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0))
         
         self.alerts_text = tk.Text(alerts_frame, bg=self.bg_medium, fg=self.text_color,
-                                   font=("Arial", 10), height=8, wrap=tk.WORD)
+                                font=("Arial", 10), height=8, wrap=tk.WORD)
         self.alerts_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # Quick actions
         actions_frame = tk.LabelFrame(dashboard, text="Quick Actions", font=("Arial", 12, "bold"),
-                                     bg=self.bg_dark, fg=self.text_color)
+                                    bg=self.bg_dark, fg=self.text_color)
         actions_frame.pack(fill=tk.X, padx=20, pady=20)
         
         self.create_action_button(actions_frame, "🆕 New Project", self.new_project, 0, 0)
@@ -432,7 +433,7 @@ class HardwareEngineeringWorkbench:
         self.update_dashboard_stats()
         self.update_recent_projects()
         self.update_alerts()
-    
+
     def create_stat_card(self, parent, title, value, column):
         #Create a stat card#
         card = tk.Frame(parent, bg=self.bg_medium, relief=tk.RAISED, borderwidth=2)
@@ -444,12 +445,12 @@ class HardwareEngineeringWorkbench:
         label.pack()
         
         setattr(self, f"stat_{title.lower().replace(' ', '_')}", label)
-    
+
     def create_action_button(self, parent, text, command, row, col):
         #Create action button with tooltip#
         btn = tk.Button(parent, text=text, command=command, font=("Arial", 12), 
-                       bg=self.accent, fg=self.text_color, relief=tk.FLAT,
-                       padx=20, pady=15, cursor="hand2")
+                    bg=self.accent, fg=self.text_color, relief=tk.FLAT,
+                    padx=20, pady=15, cursor="hand2")
         btn.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
         parent.columnconfigure(col, weight=1)
         parent.rowconfigure(row, weight=1)
@@ -457,7 +458,7 @@ class HardwareEngineeringWorkbench:
         # Add hover effect
         btn.bind('<Enter>', lambda e: btn.config(bg=self.accent_green))
         btn.bind('<Leave>', lambda e: btn.config(bg=self.accent))
-    
+
     def update_recent_projects(self):
         #Update recent projects list#
         self.recent_projects_list.delete(0, tk.END)
@@ -470,7 +471,7 @@ class HardwareEngineeringWorkbench:
         
         for name, last_opened in recent:
             self.recent_projects_list.insert(tk.END, f"  {name}")
-    
+
     def update_alerts(self):
         #Update alerts panel#
         self.alerts_text.delete("1.0", tk.END)
@@ -524,7 +525,7 @@ class HardwareEngineeringWorkbench:
         self.alerts_text.tag_config("error", foreground=self.accent_red, font=("Arial", 10, "bold"))
         self.alerts_text.tag_config("info", foreground=self.accent, font=("Arial", 10, "bold"))
         self.alerts_text.tag_config("success", foreground=self.accent_green, font=("Arial", 10, "bold"))
-    
+
     def open_recent_project(self, event):
         #Open recently selected project#
         selection = self.recent_projects_list.curselection()
@@ -533,7 +534,7 @@ class HardwareEngineeringWorkbench:
             # Switch to projects tab and open it
             self.notebook.select(3)  # Projects tab
             self.set_status(f"Opening project: {project_name}", False)
-    
+
     def create_analytics_tab(self):
         #NEW: Analytics tab with charts#
         analytics = tk.Frame(self.notebook, bg=self.bg_dark)
@@ -569,15 +570,15 @@ class HardwareEngineeringWorkbench:
         chart_select.bind('<<ComboboxSelected>>', lambda e: self.update_chart())
         
         tk.Button(chart_frame, text="🔄 Refresh", command=self.update_chart,
-                 bg=self.accent, fg=self.text_color, relief=tk.FLAT, 
-                 padx=15, pady=8).pack(side=tk.LEFT, padx=10)
+                bg=self.accent, fg=self.text_color, relief=tk.FLAT, 
+                padx=15, pady=8).pack(side=tk.LEFT, padx=10)
         
         # Chart canvas
         self.chart_container = tk.Frame(analytics, bg=self.bg_dark)
         self.chart_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
         self.update_chart()
-    
+
     def update_chart(self):
         #Update analytics chart#
         if not HAS_MATPLOTLIB:
@@ -631,7 +632,7 @@ class HardwareEngineeringWorkbench:
                 counts = [d[1] for d in data]
                 colors = [self.accent, self.accent_green, self.accent_orange, '#9b59b6', '#e67e22']
                 ax.pie(counts, labels=categories, autopct='%1.1f%%', startangle=90, 
-                      colors=colors[:len(counts)])
+                    colors=colors[:len(counts)])
                 ax.set_title('Component Distribution', color=self.text_color, fontsize=14, fontweight='bold')
         
         elif chart_type == "Lifecycle Status Distribution":
@@ -686,9 +687,9 @@ class HardwareEngineeringWorkbench:
         canvas = FigureCanvasTkAgg(fig, master=self.chart_container)
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-    
+
     # Continuing from previous code...
-    
+
     def create_components_tab(self):
         #Component library with lifecycle tracking#
         components = tk.Frame(self.notebook, bg=self.bg_dark)
@@ -699,13 +700,13 @@ class HardwareEngineeringWorkbench:
         toolbar.pack(fill=tk.X, padx=5, pady=5)
         
         tk.Button(toolbar, text="➕ Add", command=self.add_component,
-                 bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
+                bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
         tk.Button(toolbar, text="🔄 Check Lifecycle", command=self.check_lifecycle,
-                 bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
+                bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
         tk.Button(toolbar, text="💲 Update Prices", command=self.update_prices_octopart,
-                 bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
+                bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
         tk.Button(toolbar, text="💾 Export", command=self.export_components,
-                 bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
+                bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
         
         # Filter by category
         tk.Label(toolbar, text="Category:", bg=self.bg_medium, fg=self.text_color).pack(side=tk.LEFT, padx=(20,5))
@@ -731,7 +732,7 @@ class HardwareEngineeringWorkbench:
         self.components_tree.column("#0", width=50)
         
         col_widths = {"MPN": 120, "Manufacturer": 120, "Description": 200, "Category": 100,
-                     "Stock": 70, "Price": 80, "Lifecycle": 90, "Last Checked": 120}
+                    "Stock": 70, "Price": 80, "Lifecycle": 90, "Last Checked": 120}
         
         for col in columns:
             self.components_tree.heading(col, text=col, command=lambda c=col: self.sort_components(c))
@@ -754,7 +755,7 @@ class HardwareEngineeringWorkbench:
         self.components_tree.bind("<Double-1>", self.edit_component)
         
         self.refresh_components()
-    
+
     def update_category_filter(self):
         #Update category filter dropdown#
         categories = self.cursor.execute('''
@@ -764,7 +765,7 @@ class HardwareEngineeringWorkbench:
         category_list = ["All Categories"] + [c[0] for c in categories]
         self.category_filter['values'] = category_list
         self.category_filter.set("All Categories")
-    
+
     def filter_components(self):
         #Filter components by category#
         category = self.category_filter.get()
@@ -774,12 +775,12 @@ class HardwareEngineeringWorkbench:
         
         if category == "All Categories":
             query = '''SELECT id, mpn, manufacturer, description, category, stock_qty, 
-                      unit_price, lifecycle_status, last_checked FROM components ORDER BY mpn'''
+                    unit_price, lifecycle_status, last_checked FROM components ORDER BY mpn'''
             components = self.cursor.execute(query).fetchall()
         else:
             query = '''SELECT id, mpn, manufacturer, description, category, stock_qty, 
-                      unit_price, lifecycle_status, last_checked FROM components 
-                      WHERE category = ? ORDER BY mpn'''
+                    unit_price, lifecycle_status, last_checked FROM components 
+                    WHERE category = ? ORDER BY mpn'''
             components = self.cursor.execute(query, (category,)).fetchall()
         
         for comp in components:
@@ -797,12 +798,12 @@ class HardwareEngineeringWorkbench:
         self.components_tree.tag_configure('obsolete', background='#ff6666')
         self.components_tree.tag_configure('eol', background='#ffaa66')
         self.components_tree.tag_configure('lowstock', background='#ffff99')
-    
+
     def sort_components(self, column):
         #Sort components by column#
         # Simple implementation - could be enhanced
         self.refresh_components()
-    
+
     def update_prices_octopart(self):
         #Update component prices from Octopart API#
         api_key = self.settings.get("octopart_api_key", "")
@@ -886,7 +887,7 @@ class HardwareEngineeringWorkbench:
         # Run in background thread
         thread = threading.Thread(target=update_worker, daemon=True)
         thread.start()
-    
+
     def generate_report(self):
         #Generate PDF or HTML report#
         project_name = self.project_var.get() if hasattr(self, 'project_var') and self.project_var.get() else None
@@ -905,7 +906,7 @@ class HardwareEngineeringWorkbench:
         try:
             bom_items = self.cursor.execute('''
                 SELECT b.reference_designator, c.mpn, c.manufacturer, c.description, 
-                       b.quantity, c.unit_price, c.lifecycle_status, c.datasheet_url
+                    b.quantity, c.unit_price, c.lifecycle_status, c.datasheet_url
                 FROM bom b
                 JOIN components c ON b.component_id = c.id
                 WHERE b.project_id = ?
@@ -1004,7 +1005,7 @@ class HardwareEngineeringWorkbench:
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate report: {str(e)}")
-    
+
     def show_settings(self):
         #Show settings dialog#
         dialog = tk.Toplevel(self.root)
@@ -1041,7 +1042,7 @@ class HardwareEngineeringWorkbench:
         # Auto-backup
         auto_backup_var = tk.BooleanVar(value=self.settings["auto_backup"])
         tk.Checkbutton(general, text="Enable automatic backup", variable=auto_backup_var,
-                      bg=self.bg_dark, fg=self.text_color, selectcolor=self.bg_medium).grid(row=row, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+                    bg=self.bg_dark, fg=self.text_color, selectcolor=self.bg_medium).grid(row=row, column=0, columnspan=2, padx=10, pady=10, sticky="w")
         settings_fields["auto_backup"] = auto_backup_var
         row += 1
         
@@ -1088,9 +1089,9 @@ class HardwareEngineeringWorkbench:
             dialog.destroy()
         
         tk.Button(dialog, text="💾 Save Settings", command=save_settings,
-                 bg=self.accent, fg=self.text_color, relief=tk.FLAT,
-                 padx=20, pady=10).pack(pady=20)
-    
+                bg=self.accent, fg=self.text_color, relief=tk.FLAT,
+                padx=20, pady=10).pack(pady=20)
+
     def manage_suppliers(self):
         #Manage suppliers dialog#
         dialog = tk.Toplevel(self.root)
@@ -1103,7 +1104,7 @@ class HardwareEngineeringWorkbench:
         toolbar.pack(fill=tk.X, padx=5, pady=5)
         
         tk.Button(toolbar, text="➕ Add Supplier", command=lambda: self.add_supplier(dialog),
-                 bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
+                bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
         
         # Suppliers list
         columns = ("Name", "Website", "Contact", "Notes")
@@ -1119,12 +1120,12 @@ class HardwareEngineeringWorkbench:
         suppliers = self.cursor.execute("SELECT id, name, website, contact, notes FROM suppliers").fetchall()
         for sup in suppliers:
             tree.insert("", tk.END, text=sup[0], values=(sup[1], sup[2], sup[3], sup[4]))
-    
+
     def add_supplier(self, parent):
         #Add new supplier#
         # Implementation similar to add_component
         pass
-    
+
     def toggle_theme(self):
         #Toggle between dark and light theme#
         if self.settings["theme"] == "dark":
@@ -1134,7 +1135,7 @@ class HardwareEngineeringWorkbench:
         
         self.save_settings()
         messagebox.showinfo("Theme Changed", "Please restart the application for theme changes to take effect.")
-    
+
     def startup_checks(self):
         #Run checks on startup#
         # Check for obsolete parts
@@ -1144,50 +1145,50 @@ class HardwareEngineeringWorkbench:
         
         if obsolete_count > 0:
             self.set_status(f"⚠️ Warning: {obsolete_count} obsolete components found", False)
-    
+
     def check_updates(self):
         #Check for software updates#
         messagebox.showinfo("Updates", 
-                           "Hardware Engineering Workbench v2.0\n\n"
-                           "You are running the latest version!\n\n"
-                           "Check github.com for updates and new features.")
-    
+                        "Hardware Engineering Workbench v2.0\n\n"
+                        "You are running the latest version!\n\n"
+                        "Check github.com for updates and new features.")
+
     def show_shortcuts(self):
         #Show keyboard shortcuts#
         shortcuts_text = """
-KEYBOARD SHORTCUTS:
+        Keyboard Shortcuts:
+        -------------------
+        Ctrl+N       - New Project
+        Ctrl+O       - Import BOM
+        Ctrl+S       - Export Components
 
-File Operations:
-  Ctrl+N    New Project
-  Ctrl+O    Import BOM
-  Ctrl+S    Export Components
-  
-Navigation:
-  Ctrl+F    Focus Search
-  F5        Refresh All Views
-  
-Settings:
-  Ctrl+,    Open Settings
-  
-General:
-  Double-click    Edit item
-  Right-click     Context menu
+
+        Navigation:
+        Ctrl+F Focus Search
+        F5 Refresh All Views
+
+        Settings:
+        Ctrl+, Open Settings
+
+        General:
+        Double-click Edit item
+        Right-click Context Menu
         """
         messagebox.showinfo("Keyboard Shortcuts", shortcuts_text)
-    
-    def manual_backup(self):
+
+        def manual_backup(self):
         #Manual database backup#
-        try:
-            backup_dir = filedialog.askdirectory(title="Select Backup Location")
-            if backup_dir:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                backup_file = os.path.join(backup_dir, f"hardware_workbench_{timestamp}.db")
-                shutil.copy2("hardware_workbench.db", backup_file)
-                messagebox.showinfo("Success", f"Backup created:\n{backup_file}")
-                self.log_activity("Manual Backup", backup_file)
-        except Exception as e:
-            messagebox.showerror("Error", f"Backup failed: {str(e)}")
-    
+            try:
+                backup_dir = filedialog.askdirectory(title="Select Backup Location")
+                if backup_dir:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    backup_file = os.path.join(backup_dir, f"hardware_workbench_{timestamp}.db")
+                    shutil.copy2("hardware_workbench.db", backup_file)
+                    messagebox.showinfo("Success", f"Backup created:\n{backup_file}")
+                    self.log_activity("Manual Backup", backup_file)
+            except Exception as e:
+                messagebox.showerror("Error", f"Backup failed: {str(e)}")
+
     def restore_backup(self):
         #Restore from backup#
         backup_file = filedialog.askopenfilename(
@@ -1197,8 +1198,8 @@ General:
         
         if backup_file:
             if messagebox.askyesno("Confirm Restore", 
-                                   "This will replace your current database.\n\n"
-                                   "Are you sure you want to continue?"):
+                                "This will replace your current database.\n\n"
+                                "Are you sure you want to continue?"):
                 try:
                     self.conn.close()
                     shutil.copy2(backup_file, "hardware_workbench.db")
@@ -1209,12 +1210,12 @@ General:
                     self.log_activity("Restored Backup", backup_file)
                 except Exception as e:
                     messagebox.showerror("Error", f"Restore failed: {str(e)}")
-    
+
     # Include all previous methods from version 1.0 (components tab, BOM tab, projects tab, etc.)
     # [Previous code continues here - create_components_tab, create_bom_tab, etc.]
-    
+
     # ... [Include all methods from previous version] ...
-    
+
     def create_bom_tab(self):
         #BOM management - keeping from v1.0#
         bom = tk.Frame(self.notebook, bg=self.bg_dark)
@@ -1232,14 +1233,14 @@ General:
         self.project_combo.bind('<<ComboboxSelected>>', lambda e: self.load_bom())
         
         tk.Button(selector_frame, text="🔄 Refresh", command=self.load_bom,
-                 bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
+                bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
         
         cost_frame = tk.LabelFrame(bom, text="💰 Cost Summary", bg=self.bg_dark, fg=self.text_color,
-                                  font=("Arial", 11, "bold"))
+                                font=("Arial", 11, "bold"))
         cost_frame.pack(fill=tk.X, padx=5, pady=5)
         
         self.bom_cost_label = tk.Label(cost_frame, text="Total Cost per Unit: $0.00", 
-                                       font=("Arial", 14, "bold"), bg=self.bg_dark, fg=self.accent)
+                                    font=("Arial", 14, "bold"), bg=self.bg_dark, fg=self.accent)
         self.bom_cost_label.pack(pady=10)
         
         tree_frame = tk.Frame(bom, bg=self.bg_dark)
@@ -1267,7 +1268,7 @@ General:
         tree_frame.columnconfigure(0, weight=1)
         
         self.refresh_projects_combo()
-    
+
     def create_projects_tab(self):
         #Projects - keeping from v1.0#
         projects = tk.Frame(self.notebook, bg=self.bg_dark)
@@ -1277,9 +1278,9 @@ General:
         toolbar.pack(fill=tk.X, padx=5, pady=5)
         
         tk.Button(toolbar, text="➕ New Project", command=self.new_project,
-                 bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
+                bg=self.accent, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
         tk.Button(toolbar, text="🗑️ Delete", command=self.delete_project,
-                 bg=self.accent_red, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
+                bg=self.accent_red, fg=self.text_color, relief=tk.FLAT, padx=15, pady=8).pack(side=tk.LEFT, padx=5)
         
         tree_frame = tk.Frame(projects, bg=self.bg_dark)
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -1306,7 +1307,7 @@ General:
         self.projects_tree.bind("<Double-1>", self.open_project)
         
         self.refresh_projects()
-    
+
     def create_tools_tab(self):
         #Tools tab - keeping from v1.0#
         tools = tk.Frame(self.notebook, bg=self.bg_dark)
@@ -1333,7 +1334,7 @@ General:
         
         for category, tool_list in categories.items():
             frame = tk.LabelFrame(tools, text=category, font=("Arial", 12, "bold"),
-                                 bg=self.bg_dark, fg=self.text_color)
+                                bg=self.bg_dark, fg=self.text_color)
             frame.pack(fill=tk.X, padx=20, pady=10)
             
             for name, cmd, desc in tool_list:
@@ -1341,10 +1342,10 @@ General:
                 btn_frame.pack(fill=tk.X, padx=10, pady=5)
                 
                 tk.Button(btn_frame, text=f"Launch {name}", command=lambda c=cmd: self.launch_external(c),
-                         bg=self.accent, fg=self.text_color, relief=tk.FLAT, 
-                         width=20, pady=8).pack(side=tk.LEFT, padx=5)
+                        bg=self.accent, fg=self.text_color, relief=tk.FLAT, 
+                        width=20, pady=8).pack(side=tk.LEFT, padx=5)
                 tk.Label(btn_frame, text=desc, bg=self.bg_medium, fg="#888888").pack(side=tk.LEFT, padx=10)
-    
+
     # Include remaining methods from v1.0
     # add_component, new_project, import_bom, refresh_components, etc.
     # [Copy all methods from previous version here]
@@ -1358,7 +1359,7 @@ General:
         
         fields = {}
         labels = ["MPN*", "Manufacturer*", "Description", "Category", "Stock Qty", 
-                 "Min Stock", "Unit Price", "Datasheet URL", "Notes"]
+                "Min Stock", "Unit Price", "Datasheet URL", "Notes"]
         
         for i, label in enumerate(labels):
             tk.Label(dialog, text=label, bg=self.bg_dark, fg=self.text_color).grid(row=i, column=0, padx=10, pady=5, sticky="e")
@@ -1382,7 +1383,7 @@ General:
                 
                 self.cursor.execute('''
                     INSERT INTO components (mpn, manufacturer, description, category, stock_qty, 
-                                          min_stock, unit_price, datasheet_url, notes, last_checked, lifecycle_status)
+                                        min_stock, unit_price, datasheet_url, notes, last_checked, lifecycle_status)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     mpn, manufacturer,
@@ -1406,7 +1407,7 @@ General:
                 messagebox.showerror("Error", f"Failed to add component: {str(e)}")
         
         tk.Button(dialog, text="💾 Save", command=save, bg=self.accent, fg=self.text_color,
-                 relief=tk.FLAT, padx=20, pady=10).grid(row=len(labels), column=0, columnspan=2, pady=20)
+                relief=tk.FLAT, padx=20, pady=10).grid(row=len(labels), column=0, columnspan=2, pady=20)
 
     def new_project(self):
         #New project from v1.0#
@@ -1425,7 +1426,7 @@ General:
             
             if "Path" in label:
                 tk.Button(dialog, text="📁", command=lambda e=entry: self.browse_folder(e),
-                         bg=self.bg_medium, fg=self.text_color).grid(row=i, column=2, padx=5)
+                        bg=self.bg_medium, fg=self.text_color).grid(row=i, column=2, padx=5)
             
             fields[label.replace("*", "").strip()] = entry
         
@@ -1458,7 +1459,7 @@ General:
                 messagebox.showerror("Error", f"Failed to create project: {str(e)}")
         
         tk.Button(dialog, text="💾 Create Project", command=save, bg=self.accent, fg=self.text_color,
-                 relief=tk.FLAT, padx=20, pady=10).grid(row=len(labels), column=0, columnspan=3, pady=20)
+                relief=tk.FLAT, padx=20, pady=10).grid(row=len(labels), column=0, columnspan=3, pady=20)
 
     def browse_folder(self, entry):
         #Browse folder#
@@ -1527,7 +1528,7 @@ General:
         
         bom_items = self.cursor.execute('''
             SELECT b.reference_designator, c.mpn, c.manufacturer, c.description, 
-                   b.quantity, c.unit_price, c.lifecycle_status
+                b.quantity, c.unit_price, c.lifecycle_status
             FROM bom b
             JOIN components c ON b.component_id = c.id
             WHERE b.project_id = ?
@@ -1605,7 +1606,7 @@ General:
                                 INSERT INTO components (mpn, manufacturer, description, last_checked, lifecycle_status, unit_price)
                                 VALUES (?, ?, ?, ?, ?, ?)
                             ''', (mpn, row.get('Manufacturer', ''), row.get('Description', ''), 
-                                 datetime.now(), 'Active', float(row.get('Price', 0) or 0)))
+                                datetime.now(), 'Active', float(row.get('Price', 0) or 0)))
                             comp_id = self.cursor.lastrowid
                         else:
                             comp_id = comp[0]
@@ -1625,7 +1626,7 @@ General:
                 messagebox.showerror("Error", f"Import failed: {str(e)}")
         
         tk.Button(dialog, text="Import", command=do_import, bg=self.accent,
-                 fg=self.text_color, relief=tk.FLAT, padx=20, pady=8).pack(pady=10)
+                fg=self.text_color, relief=tk.FLAT, padx=20, pady=8).pack(pady=10)
 
     def search_components(self):
         #Search components#
@@ -1654,7 +1655,7 @@ General:
     def check_lifecycle(self):
         #Check lifecycle#
         messagebox.showinfo("Lifecycle Check", 
-                           "In production:\n• Query Octopart API\n• Check lifecycle\n• Update database\n\nAPI key required.")
+                        "In production:\n• Query Octopart API\n• Check lifecycle\n• Update database\n\nAPI key required.")
 
     def cost_analysis(self):
         #Cost analysis#
@@ -1756,10 +1757,11 @@ General:
         #About#
         messagebox.showinfo("About", "Hardware Engineering Workbench v2.0\n\nComplete hardware development tool")
 
+
 def main():
     root = tk.Tk()
     app = HardwareEngineeringWorkbench(root)
     root.mainloop()
 
-if __name__ == "__main__":
+if name == "main":
     main()
